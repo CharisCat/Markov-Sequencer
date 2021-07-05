@@ -4,12 +4,12 @@ int wait = 5;
  const int potsA = A0;
  const int potsB = A1;
  const int inhibitMux = 7;
- 
+
 //ROTARY ENCODER
  //Value
  const int encoderA = 2; //CLK on KY-040 breakout board
  const int encoderB = 3; //DT on KY-040 breakout board
- 
+
  volatile int lastEncoded = 0;
  volatile long encoderValue = 0;
 
@@ -31,14 +31,14 @@ int wait = 5;
 
   //Button Setting
    int setting = 0;
-  
+
    int setting1 = 0;
    int setting2 = 0;
    int setting3 = 0;
 
-//Green Button
+//GREEN BUTTON
  const int buttonPin = A4;
-  
+
 //LEDs
  const int ledAPins = A2;
  const int ledBPins = A3;
@@ -55,10 +55,14 @@ int wait = 5;
  const int lcdD7 = 13;
  LiquidCrystal lcd(registerSelect, enable, lcdD4, lcdD5, lcdD6, lcdD7);
 
-void setup() 
+//CONTROL VOLTAGE INPUTS & OUTPUTS
+ const int sequenceCV = A7; //control voltage output from user inputted sequence
+ const int markovCV = A8; //cv output from markov chain sequence
+
+void setup()
 {
   Serial.begin(9600);
-  
+
  //POTENTIOMETERS
   pinMode(inhibitMux,OUTPUT);
   digitalWrite(inhibitMux,LOW);
@@ -66,7 +70,7 @@ void setup()
   PORTB = 0b00000000; //PORT 8,9,10 set to low
   pinMode(potsA,INPUT);
   pinMode(potsB,INPUT);
-  
+
  //ROTARY ENCODER
   pinMode(encoderA,INPUT_PULLUP);
   pinMode(encoderB,INPUT_PULLUP);
@@ -74,22 +78,26 @@ void setup()
   //on interrupt 0 (pin 2), or interrupt 1 (pin 3)
   attachInterrupt(0, updateEncoder, CHANGE);
   attachInterrupt(1, updateEncoder, CHANGE);
-  
+
  //LEDs
   pinMode(ledAPins, OUTPUT);
   pinMode(ledBPins, OUTPUT);
-  
+
  //LCD SCREEN
   lcd.begin(16, 2);
   lcd.print("After Eight Step");
   lcd.setCursor(0,1);
   lcd.print("Charis Cat 2021");
 
+ //CONTROL VOLTAGE
+  pinMode(sequenceCV, OUTPUT);
+  pinMode(markovCV, OUTPUT);
+
  //TO MAX
   establishContact();  // send a byte to establish contact until receiver responds
 }
 
-void loop() 
+void loop()
 {
   Serial.flush();
 
@@ -102,7 +110,7 @@ void loop()
   if (reading != lastButtonState) {
     // reset the debouncing timer
     lastDebounceTime = millis();
- 
+
   }
 
   if ((millis() - lastDebounceTime) > debounceDelay) {
@@ -110,7 +118,7 @@ void loop()
     //if the button state has changed:
     if (reading != buttonState) {
       buttonState = reading;
-     
+
       //increment the setting number by 1
       if (buttonState == HIGH) {
           setting++;
@@ -142,7 +150,7 @@ void loop()
   } else {
     setting = setting;
   }
-  
+
  //FROM MAX
   // see if there's incoming serial data:
   if (Serial.available() > 0) {
@@ -159,7 +167,7 @@ void loop()
     }
     if (incomingByte == 'C') {
       PORTB=0b00000010;  //Data flow - X2 (current)
-      digitalWrite(ledAPins, HIGH); 
+      digitalWrite(ledAPins, HIGH);
     }
     if (incomingByte == 'D') {
       PORTB=0b00000011;  //Data flow - X3 (current step)
@@ -191,7 +199,7 @@ void loop()
     }
     if (incomingByte == 'K') {
       PORTB=0b00000010;  //Data flow - X2 (current)
-      digitalWrite(ledBPins, HIGH); 
+      digitalWrite(ledBPins, HIGH);
     }
     if (incomingByte == 'L') {
       PORTB=0b00000011;  //Data flow - X3 (current step)
@@ -217,7 +225,7 @@ void loop()
   delay(wait);
   digitalWrite(ledAPins, LOW);
   digitalWrite(ledBPins, LOW);
-  
+
  //TO MAX
   PORTB=0b00000000; //Data flow - X0
   int step1A = analogRead(potsA); //read data from X0 potsA
@@ -225,7 +233,7 @@ void loop()
   int step1B = analogRead(potsB); //read data from X0 potsB
   Serial.print(" ");
   Serial.print(step1B);
- 
+
   PORTB=0b00000001;  //Data flow - X1
   int step2A = analogRead(potsA); //read data from X1 potsA
   Serial.print(" ");
@@ -233,7 +241,7 @@ void loop()
   int step2B = analogRead(potsB); //read data from X1 potsB
   Serial.print(" ");
   Serial.print(step2B);
-  
+
   PORTB=0b00000010;  //Data flow - X2
   int step3A = analogRead(potsA); //read data from X2 potsA
   Serial.print(" ");
@@ -241,7 +249,7 @@ void loop()
   int step3B = analogRead(potsB); //read data from X2 potsB
   Serial.print(" ");
   Serial.print(step3B);
-  
+
   PORTB=0b00000011;  //Data flow - X3
   int step4A = analogRead(potsA); //read data from X3 potsA
   Serial.print(" ");
@@ -281,17 +289,17 @@ void loop()
   int step8B = analogRead(potsB); //read data from X8 potsB
   Serial.print(" ");
   Serial.print(step8B);
-  
+
   digitalWrite(inhibitMux,HIGH);  // Inhibit / stop all data
-  delay(wait);  
+  delay(wait);
   digitalWrite(inhibitMux,LOW);  // Inhibit /  let data flow
 
-  //Green Button
+  //GREEN BUTTON
   Serial.print(" ");
   int buttonRead = digitalRead(buttonPin);
   Serial.print(buttonRead);
 
-  //Rotary Encoder
+  //ROTARY ENCODER
   Serial.print(" ");
   int encoderButton = digitalRead(encoderButton);
   int scaledEncoder1 = (((setting1) - 2) / 4); //maths counteracts multiple stop encoder
@@ -303,8 +311,9 @@ void loop()
   int scaledEncoder3 = (((setting3) - 2) / 4);
   Serial.print(scaledEncoder3);
   Serial.print(" ");
-  Serial.println(setting); //Encoder button value... loop of 3 
-  
+  Serial.println(setting); //Encoder button value... loop of 3
+
+  //LCD SCREEN
   if(setting == 1){
 //    lcd.clear();
     lcd.setCursor(0,0);
@@ -335,18 +344,25 @@ void loop()
     lcd.setCursor(0,1);
     lcd.print("Charis Cat 2021");
   }
-  }
+
+  //CONTROL VOLTAGE
+  //psuedocode:
+    //i want to send out the relevant steps potentiometer resistance
+      //value over CV each time that step is activated
+   //could use the LCD ascii characters for this somehow...
+
+  } // this bracket ends the 'if serial available'
 }
 
 void updateEncoder(){
   int MSB = digitalRead(encoderA); //MSB is most significant bit
   int LSB = digitalRead(encoderB); //LSB is least significant bit
 
-  int encoded = (MSB << 1) |LSB; //converting the 2 pin value to single number 
-  int sum = (lastEncoded << 2) | encoded; //adding it to the previous encoded value 
-  if(sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) 
+  int encoded = (MSB << 1) |LSB; //converting the 2 pin value to single number
+  int sum = (lastEncoded << 2) | encoded; //adding it to the previous encoded value
+  if(sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011)
       encoderValue --; //these values mean the encoder is turning counter clockwise
-  if(sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000) 
+  if(sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000)
       encoderValue ++; //these values mean the encoder is turning clockwise
   switch (setting) {
     case 1 :
@@ -360,7 +376,7 @@ void updateEncoder(){
       break;
   }
 
-  lastEncoded = encoded; //store this value for next time 
+  lastEncoded = encoded; //store this value for next time
 }
 
 void establishContact() {
